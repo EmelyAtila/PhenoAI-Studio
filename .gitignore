@@ -1,0 +1,61 @@
+# Segurança — NUNCA commitar
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+
+# Backend (Gradle/Java)
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+*.class
+*.jar
+!gradle-wrapper.jar
+out/
+target/
+
+# Frontend (Node/Next.js) 
+node_modules/
+.next/
+.turbo/
+dist/
+coverage/
+*.tsbuildinfo
+.pnpm-debug.log*
+pnpm-debug.log*
+
+# IDEs 
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+
+# Sistema Operacional 
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker 
+docker-compose.override.yml
+
+# Logs 
+*.log
+logs/
+
+# Trello (scripts de setup) 
+create-trello-board.js
+TRELLO_BOARD_EXPORT.json
+package.json
+package-lock.json
