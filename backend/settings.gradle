@@ -1,0 +1,9 @@
+rootProject.name = 'phenoai-backend'
+
+include 'shared'
+include 'auth-service'
+include 'user-service'
+include 'credential-service'
+include 'model-catalog-service'
+include 'ai-orchestration-service'
+include 'analysis-service'
