@@ -2,7 +2,7 @@
 ## Documento de Arquitetura de Software
 > *Software Architecture Document (SAD)*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** TechForge Senior Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
 
 ---
 

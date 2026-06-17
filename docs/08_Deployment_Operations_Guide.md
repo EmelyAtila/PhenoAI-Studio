@@ -2,7 +2,7 @@
 ## Guia de Implantação e Operações
 > *Deployment & Operations Guide — Docker, K8s, CI/CD, Monitoring*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** TechForge Senior Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
 
 ---
 

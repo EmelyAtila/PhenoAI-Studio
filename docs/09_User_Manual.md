@@ -2,7 +2,7 @@
 ## Manual do Usuário
 > *Guia Completo de Utilização do PhenoAI Studio*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** TechForge Senior Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
 
 ---
 

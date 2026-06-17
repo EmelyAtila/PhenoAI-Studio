@@ -2,7 +2,7 @@
 ## Documentação de Frontend
 > *Design System, Componentes e Diretrizes UI/UX*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** TechForge Senior Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
 
 ---
 

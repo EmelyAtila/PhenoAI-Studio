@@ -2,7 +2,7 @@
 ## Engenharia de Prompts e Modelos de IA
 > *Prompt Engineering, Structured Outputs e Gestão de Modelos*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** TechForge Senior Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
 
 ---
 
