@@ -49,7 +49,7 @@ public class User implements UserDetails {
     private void prePersist() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
-        if (role == null) role = Role.USER;
+        if (role == null) role = Role.RESEARCHER;
         enabled = true;
     }
 
