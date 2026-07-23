@@ -49,6 +49,10 @@ public class JwtService {
         return "refresh".equals(extractClaims(token).get("type", String.class));
     }
 
+    public long getAccessTokenExpiration() {
+        return accessTokenExpiration;
+    }
+
     private String buildToken(User user, long expirationSeconds, String type) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
