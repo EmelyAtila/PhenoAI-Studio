@@ -27,3 +27,15 @@ dependencies {
 springBoot {
     mainClass = 'com.phenoai.auth.AuthServiceApplication'
 }
+
+bootRun {
+    def envFile = rootProject.file('.env')
+    if (envFile.exists()) {
+        envFile.readLines().each { line ->
+            if (line && !line.startsWith('#') && line.contains('=')) {
+                def parts = line.split('=', 2)
+                environment(parts[0].trim(), parts[1].trim().replaceAll(/^['"]|['"]$/, ''))
+            }
+        }
+    }
+}
