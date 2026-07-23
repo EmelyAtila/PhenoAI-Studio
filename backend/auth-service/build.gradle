@@ -29,7 +29,7 @@ springBoot {
 }
 
 bootRun {
-    def envFile = rootProject.file('.env')
+    def envFile = rootProject.file('../.env')
     if (envFile.exists()) {
         envFile.readLines().each { line ->
             if (line && !line.startsWith('#') && line.contains('=')) {
