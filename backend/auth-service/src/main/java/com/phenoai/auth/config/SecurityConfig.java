@@ -1,5 +1,7 @@
 package com.phenoai.auth.config;
 
+import com.phenoai.auth.security.JwtAccessDeniedHandler;
+import com.phenoai.auth.security.JwtAuthEntryPoint;
 import com.phenoai.auth.security.JwtAuthFilter;
 import com.phenoai.auth.security.UserDetailsServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,8 @@ public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final UserDetailsServiceImpl userDetailsService;
+    private final JwtAuthEntryPoint authEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -34,6 +38,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**", "/actuator/health").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler)
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
