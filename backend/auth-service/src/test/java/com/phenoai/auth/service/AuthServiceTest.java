@@ -15,11 +15,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.Date;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,12 +32,13 @@ class AuthServiceTest {
     @Mock private JwtService jwtService;
     @Mock private AuthenticationManager authenticationManager;
     @Mock private PasswordEncoder passwordEncoder;
+    @Mock private TokenBlacklistService tokenBlacklistService;
 
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(userRepository, jwtService, authenticationManager, passwordEncoder);
+        authService = new AuthService(userRepository, jwtService, authenticationManager, passwordEncoder, tokenBlacklistService);
     }
 
     @Test
@@ -112,6 +116,28 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.refresh(accessToken))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Token inválido");
+    }
+
+    @Test
+    void shouldLogoutSuccessfully() {
+        String token = "valid-access-token";
+        Date futureExpiry = new Date(System.currentTimeMillis() + 3_600_000);
+        when(jwtService.extractExpiration(token)).thenReturn(futureExpiry);
+
+        authService.logout(token);
+
+        verify(tokenBlacklistService).blacklist(eq(token), anyLong());
+    }
+
+    @Test
+    void shouldNotBlacklistWhenTokenAlreadyExpired() {
+        String token = "already-expired-token";
+        Date pastExpiry = new Date(System.currentTimeMillis() - 1_000);
+        when(jwtService.extractExpiration(token)).thenReturn(pastExpiry);
+
+        authService.logout(token);
+
+        verify(tokenBlacklistService, never()).blacklist(any(), anyLong());
     }
 
     @Test
