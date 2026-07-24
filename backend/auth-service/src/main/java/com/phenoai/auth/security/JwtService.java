@@ -53,6 +53,10 @@ public class JwtService {
         return accessTokenExpiration;
     }
 
+    public Date extractExpiration(String token) {
+        return extractClaims(token).getExpiration();
+    }
+
     private String buildToken(User user, long expirationSeconds, String type) {
         long now = System.currentTimeMillis();
         return Jwts.builder()
