@@ -30,6 +30,10 @@ subprojects {
     test {
         useJUnitPlatform()
         jvmArgs '-XX:+EnableDynamicAgentLoading'
+        // Windows + Docker Desktop: Testcontainers precisa de TCP (a named pipe docker_cli retorna 400)
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+            environment 'DOCKER_HOST', System.getenv('DOCKER_HOST') ?: 'tcp://localhost:2375'
+        }
         finalizedBy jacocoTestReport
     }
 
