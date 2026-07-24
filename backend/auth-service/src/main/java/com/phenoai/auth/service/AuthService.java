@@ -12,6 +12,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Date;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -20,6 +22,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
+    private final TokenBlacklistService tokenBlacklistService;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
@@ -53,6 +56,14 @@ public class AuthService {
             jwtService.generateRefreshToken(user),
             jwtService.getAccessTokenExpiration()
         );
+    }
+
+    public void logout(String token) {
+        Date expiry = jwtService.extractExpiration(token);
+        long remainingSeconds = (expiry.getTime() - System.currentTimeMillis()) / 1000;
+        if (remainingSeconds > 0) {
+            tokenBlacklistService.blacklist(token, remainingSeconds);
+        }
     }
 
     public AuthResponse refresh(String refreshToken) {
