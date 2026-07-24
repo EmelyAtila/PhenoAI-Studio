@@ -50,6 +50,20 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
+    @PostMapping("/logout")
+    @Operation(summary = "Invalida o access token e encerra a sessão")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Logout realizado com sucesso"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Token ausente, malformado ou expirado")
+    })
+    public ResponseEntity<ApiResponse<Void>> logout(
+        @RequestHeader("Authorization") String authHeader
+    ) {
+        String token = authHeader.substring(7);
+        authService.logout(token);
+        return ResponseEntity.ok(ApiResponse.ok("Logout realizado com sucesso", null));
+    }
+
     @PostMapping("/refresh")
     @Operation(summary = "Renova o access token a partir de um refresh token válido")
     @ApiResponses({
