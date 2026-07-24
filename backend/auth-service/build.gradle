@@ -29,6 +29,15 @@ springBoot {
     mainClass = 'com.phenoai.auth.AuthServiceApplication'
 }
 
+tasks.named('test') {
+    useJUnitPlatform {
+        // testes de integração (Testcontainers) só rodam no CI via --no-exclude-tags
+        if (!project.hasProperty('includeIntegration')) {
+            excludeTags 'integration'
+        }
+    }
+}
+
 bootRun {
     def envFile = rootProject.file('../.env')
     if (envFile.exists()) {
