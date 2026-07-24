@@ -1,5 +1,6 @@
 package com.phenoai.auth.service;
 
+import com.phenoai.auth.domain.Role;
 import com.phenoai.auth.domain.User;
 import com.phenoai.auth.dto.LoginRequest;
 import com.phenoai.auth.dto.RegisterRequest;
@@ -13,6 +14,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -70,6 +73,58 @@ class AuthServiceTest {
             .isInstanceOf(BadCredentialsException.class);
     }
 
-    // Cobrir também: login com sucesso, refresh com token válido,
-    // refresh com token inválido/expirado (isRefreshToken == false).
+    @Test
+    void shouldLoginSuccessfully() {
+        LoginRequest request = new LoginRequest("user@user.com", "Senha123!");
+        User user = User.builder().email(request.email()).password("hashed").role(Role.RESEARCHER).build();
+        when(userRepository.findByEmail(request.email())).thenReturn(Optional.of(user));
+        when(jwtService.generateAccessToken(user)).thenReturn("access-token");
+        when(jwtService.generateRefreshToken(user)).thenReturn("refresh-token");
+
+        var response = authService.login(request);
+
+        assertThat(response.accessToken()).isEqualTo("access-token");
+        assertThat(response.refreshToken()).isEqualTo("refresh-token");
+        verify(authenticationManager).authenticate(any());
+    }
+
+    @Test
+    void shouldRefreshTokenSuccessfully() {
+        String refreshToken = "valid-refresh-token";
+        User user = User.builder().email("user@user.com").password("hashed").role(Role.RESEARCHER).build();
+        when(jwtService.isRefreshToken(refreshToken)).thenReturn(true);
+        when(jwtService.extractEmail(refreshToken)).thenReturn(user.getEmail());
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(jwtService.isTokenValid(refreshToken, user)).thenReturn(true);
+        when(jwtService.generateAccessToken(user)).thenReturn("new-access-token");
+
+        var response = authService.refresh(refreshToken);
+
+        assertThat(response.accessToken()).isEqualTo("new-access-token");
+        assertThat(response.refreshToken()).isEqualTo(refreshToken);
+    }
+
+    @Test
+    void shouldThrowWhenTokenIsNotARefreshToken() {
+        String accessToken = "access-token-used-as-refresh";
+        when(jwtService.isRefreshToken(accessToken)).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.refresh(accessToken))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Token inválido");
+    }
+
+    @Test
+    void shouldThrowWhenRefreshTokenIsExpiredOrInvalid() {
+        String refreshToken = "expired-refresh-token";
+        User user = User.builder().email("user@user.com").password("hashed").role(Role.RESEARCHER).build();
+        when(jwtService.isRefreshToken(refreshToken)).thenReturn(true);
+        when(jwtService.extractEmail(refreshToken)).thenReturn(user.getEmail());
+        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        when(jwtService.isTokenValid(refreshToken, user)).thenReturn(false);
+
+        assertThatThrownBy(() -> authService.refresh(refreshToken))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("Token expirado ou inválido");
+    }
 }
