@@ -1,111 +1,89 @@
 package com.phenoai.auth.service;
 
-import com.phenoai.auth.domain.entity.User;
-import com.phenoai.auth.domain.enums.Role;
-import com.phenoai.auth.dto.request.LoginRequest;
-import com.phenoai.auth.dto.request.RefreshRequest;
-import com.phenoai.auth.dto.request.RegisterRequest;
-import com.phenoai.auth.dto.response.AuthResponse;
-import com.phenoai.auth.exception.EmailAlreadyExistsException;
-import com.phenoai.auth.exception.InvalidCredentialsException;
-import com.phenoai.auth.exception.InvalidTokenException;
+import com.phenoai.auth.domain.User;
+import com.phenoai.auth.dto.AuthResponse;
+import com.phenoai.auth.dto.LoginRequest;
+import com.phenoai.auth.dto.RegisterRequest;
 import com.phenoai.auth.repository.UserRepository;
-import com.phenoai.auth.security.JwtTokenProvider;
+import com.phenoai.auth.security.JwtService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Duration;
-import java.util.UUID;
+import java.util.Date;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    @Value("${jwt.refresh-token-expiration}")
-    private long refreshTokenExpirationSeconds;
-
-    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new EmailAlreadyExistsException(request.email());
+            throw new IllegalArgumentException("Email já cadastrado");
         }
 
         User user = User.builder()
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .name(request.name())
-                .role(Role.RESEARCHER)
-                .build();
+            .email(request.email())
+            .password(passwordEncoder.encode(request.password()))
+            .build();
 
-        user = userRepository.save(user);
-        return buildAuthResponse(user);
+        userRepository.save(user);
+
+        return AuthResponse.of(
+            jwtService.generateAccessToken(user),
+            jwtService.generateRefreshToken(user),
+            jwtService.getAccessTokenExpiration()
+        );
     }
 
-    @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+            new UsernamePasswordAuthenticationToken(request.email(), request.password())
+        );
+
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(InvalidCredentialsException::new);
+            .orElseThrow();
 
-        if (!user.isEnabled() || !passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new InvalidCredentialsException();
-        }
-
-        return buildAuthResponse(user);
+        return AuthResponse.of(
+            jwtService.generateAccessToken(user),
+            jwtService.generateRefreshToken(user),
+            jwtService.getAccessTokenExpiration()
+        );
     }
 
-    public AuthResponse refresh(RefreshRequest request) {
-        String tokenKey = "refresh:" + request.refreshToken();
-        String userId = redisTemplate.opsForValue().get(tokenKey);
-
-        if (userId == null) {
-            throw new InvalidTokenException("Refresh token inválido ou expirado");
-        }
-
-        User user = userRepository.findById(UUID.fromString(userId))
-                .orElseThrow(() -> new InvalidTokenException("Usuário não encontrado"));
-
-        redisTemplate.delete(tokenKey);
-        return buildAuthResponse(user);
-    }
-
-    public void logout(String accessToken, String refreshToken) {
-        if (accessToken != null && jwtTokenProvider.isValid(accessToken)) {
-            long ttl = jwtTokenProvider.getTokenRemainingSeconds(accessToken);
-            if (ttl > 0) {
-                redisTemplate.opsForValue().set(
-                        "blacklist:" + accessToken, "1", Duration.ofSeconds(ttl));
-            }
-        }
-        if (refreshToken != null) {
-            redisTemplate.delete("refresh:" + refreshToken);
+    public void logout(String token) {
+        Date expiry = jwtService.extractExpiration(token);
+        long remainingSeconds = (expiry.getTime() - System.currentTimeMillis()) / 1000;
+        if (remainingSeconds > 0) {
+            tokenBlacklistService.blacklist(token, remainingSeconds);
         }
     }
 
-    private AuthResponse buildAuthResponse(User user) {
-        String accessToken = jwtTokenProvider.generateAccessToken(user);
-        String refreshToken = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(
-                "refresh:" + refreshToken,
-                user.getId().toString(),
-                Duration.ofSeconds(refreshTokenExpirationSeconds));
+    public AuthResponse refresh(String refreshToken) {
+        if (!jwtService.isRefreshToken(refreshToken)) {
+            throw new IllegalArgumentException("Token inválido");
+        }
 
-        return new AuthResponse(
-                accessToken,
-                refreshToken,
-                "Bearer",
-                jwtTokenProvider.getAccessTokenExpirationSeconds(),
-                user.getId(),
-                user.getEmail(),
-                user.getName(),
-                user.getRole());
+        String email = jwtService.extractEmail(refreshToken);
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow();
+
+        if (!jwtService.isTokenValid(refreshToken, user)) {
+            throw new IllegalArgumentException("Token expirado ou inválido");
+        }
+
+        return AuthResponse.of(
+            jwtService.generateAccessToken(user),
+            refreshToken,
+            jwtService.getAccessTokenExpiration()
+        );
     }
 }

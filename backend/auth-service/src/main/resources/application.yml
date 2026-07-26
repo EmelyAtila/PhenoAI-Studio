@@ -33,7 +33,7 @@ spring:
       timeout: 2000ms
 
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:minha-chave-secreta-local-muito-longa-32chars}
   access-token-expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600}
   refresh-token-expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800}
 

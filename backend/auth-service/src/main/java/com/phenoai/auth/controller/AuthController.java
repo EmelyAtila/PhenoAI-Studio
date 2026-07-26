@@ -1,70 +1,80 @@
 package com.phenoai.auth.controller;
 
-import com.phenoai.auth.dto.request.LoginRequest;
-import com.phenoai.auth.dto.request.LogoutRequest;
-import com.phenoai.auth.dto.request.RefreshRequest;
-import com.phenoai.auth.dto.request.RegisterRequest;
-import com.phenoai.auth.dto.response.AuthResponse;
+import com.phenoai.auth.dto.AuthResponse;
+import com.phenoai.auth.dto.LoginRequest;
+import com.phenoai.auth.dto.RegisterRequest;
 import com.phenoai.auth.service.AuthService;
+import com.phenoai.shared.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "Endpoints de autenticação do PhenoAI Studio")
+@Tag(name = "Autenticação", description = "Cadastro, login e renovação de tokens JWT")
 public class AuthController {
 
     private final AuthService authService;
 
-    @Operation(summary = "Cadastrar novo usuário")
-    @ApiResponse(responseCode = "201", description = "Usuário criado com sucesso")
-    @ApiResponse(responseCode = "409", description = "Email já cadastrado")
-    @ApiResponse(responseCode = "400", description = "Dados inválidos")
     @PostMapping("/register")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    @Operation(summary = "Cadastra um novo usuário")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "201", description = "Usuário criado com sucesso"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Email já cadastrado"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Payload inválido (validação de campos)")
+    })
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
+        @Valid @RequestBody RegisterRequest request
+    ) {
+        AuthResponse response = authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Usuário criado com sucesso", response));
     }
 
-    @Operation(summary = "Realizar login")
-    @ApiResponse(responseCode = "200", description = "Login realizado com sucesso")
-    @ApiResponse(responseCode = "401", description = "Credenciais inválidas")
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    @Operation(summary = "Autentica um usuário e retorna os tokens JWT")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login realizado com sucesso"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Email ou senha inválidos"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "422", description = "Payload inválido (validação de campos)")
+    })
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+        @Valid @RequestBody LoginRequest request
+    ) {
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
-    @Operation(summary = "Renovar access token usando refresh token")
-    @ApiResponse(responseCode = "200", description = "Token renovado com sucesso")
-    @ApiResponse(responseCode = "401", description = "Refresh token inválido ou expirado")
-    @PostMapping("/refresh")
-    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {
-        return authService.refresh(request);
-    }
-
-    @Operation(summary = "Realizar logout — invalida os tokens")
-    @ApiResponse(responseCode = "204", description = "Logout realizado com sucesso")
     @PostMapping("/logout")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void logout(HttpServletRequest request,
-                       @RequestBody(required = false) LogoutRequest logoutRequest) {
-        String accessToken = extractBearerToken(request);
-        String refreshToken = logoutRequest != null ? logoutRequest.refreshToken() : null;
-        authService.logout(accessToken, refreshToken);
+    @Operation(summary = "Invalida o access token e encerra a sessão")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Logout realizado com sucesso"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Token ausente, malformado ou expirado")
+    })
+    public ResponseEntity<ApiResponse<Void>> logout(
+        @RequestHeader("Authorization") String authHeader
+    ) {
+        String token = authHeader.substring(7);
+        authService.logout(token);
+        return ResponseEntity.ok(ApiResponse.ok("Logout realizado com sucesso", null));
     }
 
-    private String extractBearerToken(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7);
-        }
-        return null;
+    @PostMapping("/refresh")
+    @Operation(summary = "Renova o access token a partir de um refresh token válido")
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token renovado com sucesso"),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Refresh token ausente, malformado, inválido ou expirado")
+    })
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+        @RequestHeader("Authorization") String authHeader
+    ) {
+        String refreshToken = authHeader.substring(7);
+        AuthResponse response = authService.refresh(refreshToken);
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }

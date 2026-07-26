@@ -16,16 +16,49 @@ allprojects {
 subprojects {
     apply plugin: 'java'
     apply plugin: 'io.spring.dependency-management'
+    apply plugin: 'jacoco'
 
     java {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
     }
 
+    jacoco {
+        toolVersion = "0.8.11"
+    }
+
+    test {
+        useJUnitPlatform()
+        jvmArgs '-XX:+EnableDynamicAgentLoading'
+        // Windows + Docker Desktop: Testcontainers precisa de TCP (a named pipe docker_cli retorna 400)
+        if (org.gradle.internal.os.OperatingSystem.current().isWindows()) {
+            environment 'DOCKER_HOST', System.getenv('DOCKER_HOST') ?: 'tcp://localhost:2375'
+        }
+        finalizedBy jacocoTestReport
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    jacocoTestCoverageVerification {
+        violationRules {
+            rule {
+                limit {
+                    minimum = 0.80 // 80% exigido pelo DoD
+                }
+            }
+        }
+    }
+
     dependencyManagement {
         imports {
             mavenBom 'org.springframework.boot:spring-boot-dependencies:3.2.5'
-            
+
         }
     }
 
@@ -34,13 +67,8 @@ subprojects {
         annotationProcessor 'org.projectlombok:lombok'
 
         testImplementation 'org.springframework.boot:spring-boot-starter-test'
-        testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
-        testImplementation 'org.testcontainers:postgresql:1.19.8'
-    }
-
-    test {
-        useJUnitPlatform()
-        jvmArgs '-XX:+EnableDynamicAgentLoading'
+        testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+        testImplementation 'org.testcontainers:postgresql:1.20.4'
     }
 
     tasks.withType(JavaCompile) {
