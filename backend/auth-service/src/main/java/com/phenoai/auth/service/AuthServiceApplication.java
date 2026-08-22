@@ -1,4 +1,4 @@
-package com.phenoai.auth;
+package com.phenoai.auth.service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -10,3 +10,4 @@ public class AuthServiceApplication {
         SpringApplication.run(AuthServiceApplication.class, args);
     }
 }
+ 
