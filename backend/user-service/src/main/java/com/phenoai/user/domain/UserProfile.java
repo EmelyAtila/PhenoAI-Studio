@@ -1,16 +1,19 @@
 package com.phenoai.user.domain;
 
 import java.time.Instant;
+import java.util.UUID;
 
 import org.hibernate.annotations.UpdateTimestamp;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,7 +46,7 @@ public class UserProfile {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     @Builder.Default
-    private String role = "RESEARCHER";
+    private Role role = Role.RESEARCHER;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
