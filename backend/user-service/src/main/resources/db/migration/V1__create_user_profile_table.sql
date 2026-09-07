@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS user_profiles (
+CREATE SCHEMA IF NOT EXISTS users;
+
+CREATE TABLE IF NOT EXISTS users.user_profiles (
     id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     email       VARCHAR(255) NOT NULL UNIQUE,
     name        VARCHAR(150) NOT NULL,
@@ -9,3 +11,4 @@ CREATE TABLE IF NOT EXISTS user_profiles (
     updated_at  TIMESTAMP   NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_user_profiles_email ON users.user_profiles (email);
