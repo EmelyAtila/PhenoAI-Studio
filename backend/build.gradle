@@ -55,6 +55,8 @@ subprojects {
         }
     }
 
+    check.dependsOn jacocoTestCoverageVerification
+
     dependencyManagement {
         imports {
             mavenBom 'org.springframework.boot:spring-boot-dependencies:3.2.5'
