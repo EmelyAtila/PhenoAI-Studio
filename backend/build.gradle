@@ -55,7 +55,11 @@ subprojects {
         }
     }
 
-    check.dependsOn jacocoTestCoverageVerification
+    // O gate de 80% só é exigido quando os testes de integração rodam (CI usa -PincludeIntegration).
+    // Localmente os unit tests sozinhos não atingem o mínimo, então não travamos o `build`.
+    if (project.hasProperty('includeIntegration')) {
+        check.dependsOn jacocoTestCoverageVerification
+    }
 
     dependencyManagement {
         imports {
