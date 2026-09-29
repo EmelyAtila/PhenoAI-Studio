@@ -1,0 +1,33 @@
+{
+  "app": {
+    "name": "PhenoAI Studio",
+    "tagline": "Análise fenotípica inteligente"
+  },
+  "nav": {
+    "home": "Início",
+    "dashboard": "Painel",
+    "models": "Modelos",
+    "analyses": "Análises",
+    "profile": "Perfil",
+    "logout": "Sair"
+  },
+  "auth": {
+    "login": "Entrar",
+    "register": "Criar conta",
+    "email": "E-mail",
+    "password": "Senha",
+    "forgotPassword": "Esqueceu a senha?",
+    "noAccount": "Não tem uma conta?",
+    "alreadyHaveAccount": "Já tem uma conta?"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "error": "Ocorreu um erro",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "back": "Voltar"
+  }
+}

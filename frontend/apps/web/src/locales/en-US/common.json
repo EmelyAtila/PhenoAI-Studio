@@ -1,0 +1,33 @@
+{
+  "app": {
+    "name": "PhenoAI Studio",
+    "tagline": "Intelligent phenotypic analysis"
+  },
+  "nav": {
+    "home": "Home",
+    "dashboard": "Dashboard",
+    "models": "Models",
+    "analyses": "Analyses",
+    "profile": "Profile",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Sign in",
+    "register": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back"
+  }
+}
