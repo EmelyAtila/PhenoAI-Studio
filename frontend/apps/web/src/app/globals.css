@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: theme('colors.phenoai.600');
+  --color-primary-hover: theme('colors.phenoai.700');
+  --color-primary-light: theme('colors.phenoai.100');
+  --color-bg: #ffffff;
+  --color-bg-subtle: theme('colors.phenoai.50');
+  --color-text: theme('colors.phenoai.950');
+  --color-text-muted: theme('colors.phenoai.600');
+  --color-border: theme('colors.phenoai.200');
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: theme('colors.phenoai.950');
+    --color-bg-subtle: theme('colors.phenoai.900');
+    --color-text: theme('colors.phenoai.50');
+    --color-text-muted: theme('colors.phenoai.400');
+    --color-border: theme('colors.phenoai.800');
+  }
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
