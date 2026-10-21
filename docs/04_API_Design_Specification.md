@@ -2,18 +2,21 @@
 ## Especificação de Design de API
 > *API Design Specification (OpenAPI/REST)*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
+**Versão:** 1.1 | **Data:** Outubro 2026 | **Equipe:** Emely Atila Development
 
 ---
 
+> **Status de implementação (v1.1):** só o **Auth Service** e o **User Service** estão implementados. As seções dos demais serviços continuam sendo a especificação-alvo. Nas seções implementadas, o conteúdo descreve o contrato real do código. Diferenças em relação ao padrão-alvo estão marcadas como **⚠️ Divergência**.
 
 ## 1. Convenções Gerais
 
 ### 1.1. Base URL e Versionamento
 
-- **Produção:** `https://api.phenoai.studio/api/v1/`
-- **Staging:** `https://api-staging.phenoai.studio/api/v1/`
+- **Produção (alvo):** `https://api.phenoai.studio/api/v1/`
+- **Staging (alvo):** `https://api-staging.phenoai.studio/api/v1/`
 - Versionamento via path (v1, v2) — backward compatibility garantida por 12 meses
+- **Ambiente local (atual):** não há API Gateway nem prefixo `/api/v1`. Cada serviço é acessado diretamente pela porta dele, com `context-path` `/`. Exemplos: `http://localhost:8081/auth/login` e `http://localhost:8082/users/me`. O prefixo `/api/v1` será aplicado pelo API Gateway quando ele for implementado.
+- **Swagger UI:** cada serviço expõe `/swagger-ui.html` e o JSON OpenAPI em `/v3/api-docs` (springdoc 2.5.0).
 
 ### 1.2. Padrões de Request/Response
 
@@ -24,49 +27,136 @@
 | Paginação | Query params: `page` (0-based), `size` (default 20, max 100), `sort` |
 | Timestamps | ISO 8601 UTC: `2026-06-01T10:30:00Z` |
 | IDs | UUID v4 em todos os recursos |
-| Erros | RFC 7807 Problem Details: type, title, status, detail, instance |
+| Erros | RFC 7807 Problem Details: type, title, status, detail, instance (alvo — ver seção 8 para o formato atual) |
 | Nomenclatura de campos | camelCase em JSON |
 | HTTP Status Codes | 200 OK, 201 Created, 204 No Content, 400, 401, 403, 404, 409, 422, 500 |
 
 ---
 
-## 2. Auth Service — `/api/v1/auth`
+## 2. Auth Service — `/auth` (porta 8081) — ✅ Implementado
 
-| Método | Endpoint | Descrição | Auth |
-|---|---|---|---|
-| POST | `/auth/register` | Cadastro de novo usuário | Pública |
-| POST | `/auth/login` | Login e emissão de JWT | Pública |
-| POST | `/auth/refresh` | Renovação de access token via refresh token | Refresh Token |
-| POST | `/auth/logout` | Invalidação do refresh token | Bearer JWT |
-| POST | `/auth/forgot-password` | Solicitação de redefinição de senha | Pública |
-| POST | `/auth/reset-password` | Redefinição de senha com token por email | Pública |
+| Método | Endpoint | Descrição | Auth | Status |
+|---|---|---|---|---|
+| POST | `/auth/register` | Cadastro de novo usuário | Pública | ✅ |
+| POST | `/auth/login` | Login e emissão de JWT | Pública | ✅ |
+| POST | `/auth/refresh` | Renovação de access token | Refresh token no header `Authorization: Bearer <refreshToken>` | ✅ |
+| POST | `/auth/logout` | Invalida o **access token** (blacklist no Redis até a expiração) | Bearer JWT (access token) | ✅ |
+| POST | `/auth/forgot-password` | Solicitação de redefinição de senha | Pública | Planejado |
+| POST | `/auth/reset-password` | Redefinição de senha com token por email | Pública | Planejado |
+
+Todas as respostas do Auth Service usam o envelope `ApiResponse` do módulo `shared`. Campos nulos são omitidos.
+
+```json
+{ "success": true, "message": "string (opcional)", "data": { } }
+```
+
+### Tokens JWT
+
+- Algoritmo HMAC-SHA (chave `JWT_SECRET`), `sub` = email do usuário, claims `role` (`ADMIN | RESEARCHER | GUEST`), `type` (`access | refresh`) e `jti` (UUID).
+- Validade: access token `JWT_ACCESS_TOKEN_EXPIRATION` (padrão 3600 s) e refresh token `JWT_REFRESH_TOKEN_EXPIRATION` (padrão 604800 s = 7 dias).
+- O `/auth/refresh` devolve um novo access token e **reaproveita o mesmo refresh token** (não há rotação).
+- Novos usuários recebem o papel `RESEARCHER`.
 
 ### POST /auth/register — Request Body
 
 ```json
 {
-  "name": "string",
-  "email": "string (email)",
-  "password": "string (min 8 chars)",
-  "preferredLanguage": "pt-BR | en"
+  "email": "string (email, obrigatório)",
+  "password": "string (obrigatório, mín. 8 caracteres)"
 }
 ```
 
-### POST /auth/login — Response 200
+> ⚠️ **Divergência:** a especificação original previa também `name` e `preferredLanguage` no cadastro (RF-01, RF-05). Hoje o nome é informado depois, no perfil do User Service (`PUT /users/me`), e a preferência de idioma ainda não é persistida.
+
+### POST /auth/register — Response 201 · POST /auth/login e /auth/refresh — Response 200
 
 ```json
 {
-  "accessToken": "string (JWT)",
-  "refreshToken": "string",
-  "expiresIn": 3600,
-  "user": {
-    "id": "uuid",
-    "name": "string",
-    "email": "string",
-    "role": "RESEARCHER | ADMIN | GUEST"
+  "success": true,
+  "message": "Usuário criado com sucesso",
+  "data": {
+    "accessToken": "string (JWT)",
+    "refreshToken": "string (JWT)",
+    "tokenType": "Bearer",
+    "expiresIn": 3600
   }
 }
 ```
+
+`message` só vem preenchido no `/register`. A resposta não inclui o objeto `user`. Para obter os dados do usuário, use `GET /users/me` no User Service.
+
+### POST /auth/logout — Response 200
+
+```json
+{ "success": true, "message": "Logout realizado com sucesso" }
+```
+
+### Códigos de erro do Auth Service
+
+| Situação | HTTP | `message` |
+|---|---|---|
+| Falha de validação dos campos | 422 | mensagens dos campos separadas por vírgula |
+| Email já cadastrado | 400 | `Email já cadastrado` |
+| Refresh com token que não é do tipo `refresh` | 400 | `Token inválido` |
+| Email ou senha incorretos | 401 | `Email ou senha inválidos` |
+| Token malformado, com assinatura inválida ou expirado | 401 | `Token inválido ou expirado` |
+| Erro inesperado | 500 | `Erro interno do servidor` |
+
+> ⚠️ **Divergência:** pelo padrão-alvo, email duplicado deveria retornar **409 Conflict**. Hoje retorna 400.
+
+---
+
+## 2A. User Service — `/users` (porta 8082) — ✅ Implementado
+
+Todas as rotas exigem `Authorization: Bearer <accessToken>` emitido pelo Auth Service. O serviço valida a assinatura com o mesmo `JWT_SECRET` e lê o email (`sub`) e o papel (`role`) direto do token.
+
+| Método | Endpoint | Descrição | Auth |
+|---|---|---|---|
+| GET | `/users/me` | Retorna o perfil do usuário autenticado | Bearer JWT |
+| PUT | `/users/me` | Cria ou atualiza (upsert) o perfil do usuário autenticado | Bearer JWT |
+| GET | `/users` | Lista todos os perfis | Bearer JWT (ADMIN) |
+| DELETE | `/users/{id}` | Remove um perfil por ID → 204 No Content | Bearer JWT (ADMIN) |
+
+### PUT /users/me — Request Body
+
+```json
+{
+  "name": "string (obrigatório, máx. 150)",
+  "bio": "string (opcional, máx. 1000)",
+  "organization": "string (opcional, máx. 255)"
+}
+```
+
+### GET /users/me · PUT /users/me — Response 200
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "name": "string",
+  "bio": "string | null",
+  "organization": "string | null",
+  "role": "RESEARCHER | ADMIN | GUEST",
+  "createdAt": "2026-06-01T10:30:00Z",
+  "updatedAt": "2026-06-01T10:30:00Z"
+}
+```
+
+> O `role` do perfil é gravado como `RESEARCHER` na criação e não é sincronizado com o papel do Auth Service. A autorização (`hasRole('ADMIN')`) usa o papel que vem no JWT.
+
+### Códigos de erro do User Service
+
+O User Service **não** usa o envelope `ApiResponse`. Os erros são retornados como `{ "error": "mensagem" }`.
+
+| Situação | HTTP | `error` |
+|---|---|---|
+| Falha de validação | 400 | `campo: mensagem` (apenas o primeiro erro) |
+| Perfil não encontrado (`GET /users/me` antes do primeiro `PUT`) | 404 | `Perfil não encontrado` |
+| Usuário não encontrado no `DELETE` | 404 | `Usuário não encontrado` |
+| Token ausente ou inválido | 403 | — (resposta padrão do Spring Security) |
+| Papel diferente de ADMIN em rota administrativa | 403 | — |
+
+> ⚠️ **Divergência:** Auth Service e User Service usam formatos de erro diferentes entre si, e nenhum dos dois segue o RFC 7807 (seção 8). O status de validação também difere: 422 no Auth e 400 no User.
 
 ---
 
@@ -199,14 +289,30 @@
   "result": {
     "schemaVersion": "1.0",
     "plantType": "Soja",
-    "height_mm": 142.5,
-    "width_mm": 98.3,
-    "leafArea_cm2": 24.7,
-    "dominantColor": "#3A7D44",
-    "chlorophyllIndex": 0.82,
-    "stressIndicators": ["mild_drought"],
-    "overallHealth": "GOOD",
-    "confidence": 0.94
+    "growthStage": "VEGETATIVE",
+    "morphometry": {
+      "height_mm": 142.5,
+      "width_mm": 98.3,
+      "leafArea_cm2": 24.7,
+      "aspectRatio": 1.45,
+      "confidence": 0.94
+    },
+    "colorimetry": {
+      "dominantColorHex": "#3A7D44",
+      "chlorophyllIndex": 0.82,
+      "colorUniformity": 0.88,
+      "confidence": 0.91
+    },
+    "healthAssessment": {
+      "overallHealth": "GOOD",
+      "healthScore": 82,
+      "stressIndicators": ["mild_drought"],
+      "detectedDiseases": [],
+      "detectedPests": [],
+      "confidence": 0.89
+    },
+    "notes": "string",
+    "analysisTimestamp": "2026-06-01T10:00:08Z"
   },
   "createdAt": "2026-06-01T10:00:00Z"
 }
@@ -227,7 +333,9 @@
 
 ## 8. Tratamento de Erros — Formato RFC 7807
 
-Todas as respostas de erro seguem o formato **Problem Details for HTTP APIs (RFC 7807)**:
+> **Alvo, ainda não implementado.** Hoje o Auth Service responde com o envelope `ApiResponse` (`success: false`, `message`) e o User Service com `{ "error": "..." }` (ver seções 2 e 2A). A padronização no RFC 7807 deve acontecer antes do API Gateway, de preferência com um handler comum no módulo `shared`.
+
+Todas as respostas de erro devem seguir o formato **Problem Details for HTTP APIs (RFC 7807)**:
 
 ```json
 {

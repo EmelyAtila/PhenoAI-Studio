@@ -13,7 +13,8 @@ phenoai-studio/
 │   ├── credential-service/     # Chaves de API criptografadas (porta 8083)
 │   ├── model-catalog-service/  # Catálogo de modelos de IA (porta 8084)
 │   ├── ai-orchestration-service/ # Orquestração de chamadas IA (porta 8085)
-│   └── analysis-service/       # Análise fenotípica (porta 8086)
+│   ├── analysis-service/       # Resultados e histórico de análises (porta 8086)
+│   └── db/init/                # Criação dos schemas PostgreSQL (um por serviço)
 ├── frontend/                   # Turborepo (Next.js 14 + TypeScript)
 │   └── apps/
 │       └── web/                # Aplicação principal (porta 3000)
@@ -21,7 +22,9 @@ phenoai-studio/
 └── docs/                       # Documentação técnica completa
 ```
 
-**Stack:** Java 21 · Spring Boot 3.2 · Next.js 14 · PostgreSQL 15 · Redis 7 · Kafka 3.7 · MinIO
+**Stack:** Java 21 · Spring Boot 3.2 · Gradle 8.8 · Next.js 14 · PostgreSQL 15 · Redis 7 · Kafka 3.6 (KRaft, Confluent 7.6.1) · MinIO
+
+**Status:** Auth Service e User Service estão implementados. Os demais microsserviços ainda são esqueletos, e o frontend tem setup e i18n prontos.
 
 ---
 
@@ -80,7 +83,7 @@ docker exec phenoai-postgres pg_isready -U phenoai -d phenoai
 docker exec phenoai-redis redis-cli -a redis_secret ping
 
 # Testar Kafka
-docker exec phenoai-kafka kafka-topics.sh --bootstrap-server localhost:9092 --list
+docker exec phenoai-kafka kafka-topics --bootstrap-server localhost:9092 --list
 
 # Testar MinIO
 curl http://localhost:9000/minio/health/live
@@ -106,12 +109,31 @@ cd backend
 # Build de todos os serviços
 ./gradlew build
 
-# Rodar Auth Service individualmente
+# Rodar Auth Service individualmente (lê o ../.env automaticamente)
 ./gradlew :auth-service:bootRun
 
-# Rodar testes
+# Rodar testes unitários
 ./gradlew test
+
+# Rodar também os testes de integração (Testcontainers, exige Docker) + gate de cobertura 80%
+./gradlew build -PincludeIntegration
 ```
+
+As migrations Flyway rodam automaticamente na subida de cada serviço, cada uma no schema do seu serviço.
+
+### Rodar os serviços em container
+
+Os serviços backend ficam no profile `app` do Compose. Os Dockerfiles copiam o JAR já compilado, então é preciso gerar o JAR antes:
+
+```bash
+cd backend && ./gradlew :auth-service:bootJar :user-service:bootJar && cd ..
+docker-compose --profile app up -d --build
+```
+
+| Serviço | URL | Swagger |
+|---|---|---|
+| Auth Service | http://localhost:8081 | http://localhost:8081/swagger-ui.html |
+| User Service | http://localhost:8082 | http://localhost:8082/swagger-ui.html |
 
 ---
 
@@ -168,16 +190,16 @@ docker-compose restart redis
 
 A documentação completa está em [`docs/`](./docs/):
 
-- `01_Vision_Scope.docx` — Visão e escopo do produto
-- `02_SRS_Especificacao_Requisitos.docx` — Requisitos de software
-- `03_SAD_Arquitetura_Software.docx` — Arquitetura do sistema
-- `04_API_Design_Specification.docx` — Especificação das APIs
-- `05_Frontend_Documentation.docx` — Documentação do frontend
-- `06_Prompt_Engineering_AI_Models.docx` — Engenharia de prompts
-- `07_Data_Model.docx` — Modelo de dados
-- `08_Deployment_Operations_Guide.docx` — Deploy e operações
-- `09_User_Manual.docx` — Manual do usuário
-- `10_Test_Strategy_QA.docx` — Estratégia de testes
+- [`01_Vision_Scope.md`](./docs/01_Vision_Scope.md) — Visão e escopo do produto
+- [`02_SRS_Especificacao_Requisitos.md`](./docs/02_SRS_Especificacao_Requisitos.md) — Requisitos de software
+- [`03_SAD_Arquitetura_Software.md`](./docs/03_SAD_Arquitetura_Software.md) — Arquitetura do sistema
+- [`04_API_Design_Specification.md`](./docs/04_API_Design_Specification.md) — Especificação das APIs
+- [`05_Frontend_Documentation.md`](./docs/05_Frontend_Documentation.md) — Documentação do frontend
+- [`06_Prompt_Engineering_AI_Models.md`](./docs/06_Prompt_Engineering_AI_Models.md) — Engenharia de prompts
+- [`07_Data_Model.md`](./docs/07_Data_Model.md) — Modelo de dados
+- [`08_Deployment_Operations_Guide.md`](./docs/08_Deployment_Operations_Guide.md) — Deploy e operações
+- [`09_User_Manual.md`](./docs/09_User_Manual.md) — Manual do usuário
+- [`10_Test_Strategy_QA.md`](./docs/10_Test_Strategy_QA.md) — Estratégia de testes
 
 ---
 

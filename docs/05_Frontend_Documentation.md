@@ -2,27 +2,32 @@
 ## Documentação de Frontend
 > *Design System, Componentes e Diretrizes UI/UX*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
+**Versão:** 1.1 | **Data:** Outubro 2026 | **Equipe:** Emely Atila Development
 
 ---
 
+> **Status (v1.1):** o setup do frontend está pronto (Next.js, Tailwind, i18n). Por enquanto a aplicação tem só a página inicial placeholder (`/`). Componentes e páginas das seções 3 e 4 são a especificação-alvo.
 
 ## 1. Stack Tecnológico
 
-| Tecnologia | Versão | Propósito |
-|---|---|---|
-| Next.js | 14.x (App Router) | Framework React com SSR, SSG e Server Components |
-| React | 18.x | Biblioteca de UI com Concurrent Features |
-| TypeScript | 5.x | Tipagem estática para maior confiabilidade |
-| Tailwind CSS | 3.x | Utility-first CSS com design system customizável |
-| Zustand | 4.x | Gerenciamento de estado global leve e performático |
-| TanStack Query | 5.x (React Query) | Cache, sync e estado de dados remotos |
-| React Hook Form | 7.x | Gerenciamento de formulários com validação |
-| Zod | 3.x | Validação e inferência de tipos em runtime |
-| i18next + next-i18next | Latest | Internacionalização (PT-BR / EN) |
-| Playwright | Latest | Testes E2E automatizados |
-| React Testing Library | Latest | Testes unitários de componentes |
-| Storybook | 7.x | Documentação viva de componentes |
+Monorepo **Turborepo + pnpm 9** em `frontend/`. A aplicação principal fica em `frontend/apps/web`.
+
+| Tecnologia | Versão | Propósito | Status |
+|---|---|---|---|
+| Next.js | 14.x (App Router) | Framework React com SSR, SSG e Server Components | Instalado |
+| React | 18.x | Biblioteca de UI com Concurrent Features | Instalado |
+| TypeScript | 5.x | Tipagem estática para maior confiabilidade | Instalado |
+| Tailwind CSS | 3.x | Utility-first CSS com design system customizável | Instalado |
+| Zustand | 4.x | Gerenciamento de estado global leve e performático | Instalado |
+| TanStack Query | 5.x (React Query) | Cache, sync e estado de dados remotos | Instalado |
+| React Hook Form | 7.x | Gerenciamento de formulários com validação | Instalado |
+| Zod | 3.x | Validação e inferência de tipos em runtime | Instalado |
+| Axios | 1.x | Cliente HTTP para as APIs | Instalado |
+| clsx + tailwind-merge | 2.x | Composição de classes CSS | Instalado |
+| i18next + react-i18next + i18next-browser-languagedetector | 23.x / 14.x / 8.x | Internacionalização (pt-BR / en-US), client-side | Instalado |
+| Jest + React Testing Library | 29.x / 16.x | Testes unitários de componentes | Instalado |
+| Playwright | Latest | Testes E2E automatizados | Planejado |
+| Storybook | 7.x | Documentação viva de componentes | Planejado |
 
 ---
 
@@ -43,6 +48,8 @@
 | `--color-neutral-600` | `#616161` | Texto secundário, placeholders |
 | `--color-neutral-100` | `#F5F5F5` | Background da aplicação |
 
+> ⚠️ **Divergência:** estes tokens ainda não estão no código. O `tailwind.config.ts` define a paleta `phenoai` (50–950) com os valores da escala `green` padrão do Tailwind (ex.: `phenoai-600` = `#16a34a`, `phenoai-900` = `#14532d`), e não os valores acima. Falta decidir qual paleta vale e alinhar o código ou este documento.
+
 ### 2.2. Tipografia
 
 | Variante | Fonte | Tamanho | Peso | Uso |
@@ -56,6 +63,8 @@
 | Body Small | Inter | 0.875rem / 14px | 400 Regular | Labels, metadata |
 | Caption | Inter | 0.75rem / 12px | 400 Regular | Tooltips, timestamps |
 | Code | JetBrains Mono | 0.875rem / 14px | 400 Regular | JSON output, prompts |
+
+A fonte Inter é carregada via `next/font/google` no `layout.tsx` e exposta como `--font-inter`, que é a `fontFamily.sans` do Tailwind. A `fontFamily.mono` aponta para `--font-mono`, mas essa variável ainda não é definida (JetBrains Mono não é carregada).
 
 ---
 
@@ -119,6 +128,8 @@ Tabela paginada do histórico de análises com TanStack Query para cache e refet
 
 ## 4. Páginas da Aplicação
 
+Hoje só existe `/`, uma página placeholder client-side com nome e tagline traduzidos. As demais rotas abaixo são planejadas.
+
 | Rota | Página | Renderização | Auth |
 |---|---|---|---|
 | `/auth/login` | Login | SSR | Pública |
@@ -136,11 +147,14 @@ Tabela paginada do histórico de análises com TanStack Query para cache e refet
 
 ## 5. Internacionalização (i18n)
 
-- **Idiomas suportados:** Português Brasileiro (`pt-BR`, padrão) e Inglês (`en`)
-- Arquivos de tradução em `/public/locales/{lang}/*.json` por domínio (auth, analysis, common, etc.)
-- Seletor de idioma no Header com persistência via cookie/localStorage
-- URLs com locale prefix opcional: `/pt-BR/analyses` ou `/en/analyses`
+- **Idiomas suportados:** Português Brasileiro (`pt-BR`, padrão e `fallbackLng`) e Inglês (`en-US`)
+- **Configuração:** `src/lib/i18n/config.ts` (i18next + `react-i18next` + `i18next-browser-languagedetector`). Os componentes importam `useTranslation` de `@/lib/i18n/client`. A tradução roda no cliente, então as páginas que usam `useTranslation` precisam de `'use client'`.
+- **Arquivos de tradução:** `src/locales/{pt-BR|en-US}/{namespace}.json`, importados no bundle. Hoje só existe o namespace `common` (padrão). Novos namespaces (auth, analysis…) precisam ser registrados em `resources` no `config.ts`.
+- **Detecção e persistência:** ordem `localStorage` → idioma do navegador, com cache em `localStorage`
+- Seletor de idioma no Header — planejado
+- URLs com prefixo de locale (`/pt-BR/analyses`, `/en-US/analyses`) — planejado, não implementado
 - Datas, moedas e números formatados via `Intl` API conforme o locale ativo
+- ⚠️ O `.env.example` documenta `NEXT_PUBLIC_DEFAULT_LOCALE` com valores `pt-BR | en`, mas o código usa `en-US` e ainda não lê essa variável
 
 ---
 

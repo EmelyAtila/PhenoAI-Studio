@@ -2,7 +2,7 @@
 ## Documento de Visão e Escopo
 > *Vision & Scope Document*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
+**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Emely Atila Development
 
 ---
 
@@ -28,7 +28,7 @@ A fenotipagem manual de plantas é um processo lento, subjetivo e susceptível a
 | Pesquisadores Acadêmicos | Usuário Final | Análises precisas, exportação de dados, multi-idioma |
 | Agrônomos | Usuário Final | Detecção de pragas, estresse, diagnóstico rápido |
 | Administradores do Sistema | Operacional | Gestão de usuários, monitoramento, configuração |
-| TechForge Engineering Team | Desenvolvimento | Entrega técnica, qualidade, arquitetura |
+| Emely Atila Development | Desenvolvimento | Entrega técnica, qualidade, arquitetura |
 | Gestores de Pesquisa | Decisor | ROI, relatórios, conformidade |
 
 ---

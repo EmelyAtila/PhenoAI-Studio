@@ -2,7 +2,9 @@
 ## Guia de Implantação e Operações
 > *Deployment & Operations Guide — Docker, K8s, CI/CD, Monitoring*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
+**Versão:** 1.1 | **Data:** Outubro 2026 | **Equipe:** Emely Atila Development
+
+> **Status (v1.1):** o ambiente de desenvolvimento (seção 3) descreve o estado atual do repositório. As seções de CI/CD, Kubernetes, monitoramento e backup são o alvo de produção e ainda não estão implementadas. Não há workflows em `.github/workflows/` nem manifests em `k8s/`.
 
 ---
 
@@ -15,8 +17,9 @@
 | Docker Compose | 2.20+ | Orquestração local (desenvolvimento) |
 | Kubernetes (kubectl) | 1.28+ | Orquestração em produção/staging |
 | Helm | 3.12+ | Gerenciamento de charts K8s |
-| Java JDK | 17 LTS (Temurin) | Build dos microsserviços backend |
+| Java JDK | 21 LTS (Temurin) | Build dos microsserviços backend (Gradle 8.8 via wrapper `backend/gradlew`) |
 | Node.js | 20 LTS | Build do frontend Next.js |
+| pnpm | 9.x | Gerenciador de pacotes do monorepo frontend (Turborepo) |
 | PostgreSQL Client (psql) | 15+ | Acesso ao banco de dados |
 | AWS CLI / MinIO Client | Latest | Gerenciamento do armazenamento de objetos |
 | Helm Secrets / SOPS | Latest | Gerenciamento de secrets no pipeline CI/CD |
@@ -46,36 +49,57 @@ cd phenoai-studio
 cp .env.example .env
 # Editar .env com chaves de API locais e configurações
 
-# Subir todos os serviços
-docker-compose up -d
+# 1. Infraestrutura (PostgreSQL, Redis, Kafka, MinIO)
+docker compose up -d
+docker compose ps            # aguardar todos "healthy"
 
-# Verificar status dos containers
-docker-compose ps
+# 2. Microsserviços em container (profile "app": auth-service e user-service)
+#    Os Dockerfiles copiam o JAR de build/libs, então é preciso gerar o JAR antes
+cd backend && ./gradlew :auth-service:bootJar :user-service:bootJar && cd ..
+docker compose --profile app up -d --build
 
-# Aplicar migrations do banco
-docker-compose exec auth-service ./gradlew flywayMigrate
+# Alternativa: rodar um serviço direto do Gradle (lê o ../.env automaticamente)
+cd backend && ./gradlew :auth-service:bootRun
 
-# Acessos:
-# Frontend:    http://localhost:3000
-# API Gateway: http://localhost:8080
-# Grafana:     http://localhost:3001 (admin/admin)
+# 3. (Opcional) Kafka UI
+docker compose --profile tools up -d
 ```
 
-### 3.2. Variáveis de Ambiente Críticas (.env)
+As migrations Flyway rodam **automaticamente** quando cada serviço sobe. Não existe passo manual de migração.
+
+| Acesso | URL |
+|---|---|
+| Frontend (`pnpm dev` em `frontend/`) | http://localhost:3000 |
+| Auth Service / Swagger | http://localhost:8081 · http://localhost:8081/swagger-ui.html |
+| User Service / Swagger | http://localhost:8082 · http://localhost:8082/swagger-ui.html |
+| Kafka UI (profile `tools`) | http://localhost:8080 |
+| MinIO Console | http://localhost:9001 |
+
+> Ainda não existem API Gateway nem Grafana no `docker-compose.yml`. A porta 8080 está ocupada pelo Kafka UI. Quando o Gateway for adicionado, uma das duas portas precisa mudar.
+
+### 3.2. Variáveis de Ambiente (.env)
+
+Referência completa em `.env.example`. Variáveis em uso hoje:
 
 | Variável | Descrição | Obrigatório |
 |---|---|---|
-| `DATABASE_URL` | URL JDBC do PostgreSQL | Sim |
-| `REDIS_URL` | URL do Redis (redis://host:6379) | Sim |
-| `KAFKA_BOOTSTRAP_SERVERS` | Endereços dos brokers Kafka | Sim |
-| `JWT_SECRET` | Chave secreta para assinatura de JWT (min 256 bits) | Sim |
-| `CREDENTIAL_ENCRYPTION_KEY` | Chave AES-256 para criptografia das API keys | Sim |
-| `S3_BUCKET_NAME` | Nome do bucket S3/MinIO para imagens | Sim |
-| `S3_ENDPOINT` | Endpoint S3 (vazio para AWS, URL para MinIO) | Sim para MinIO |
-| `AWS_ACCESS_KEY_ID` | Chave de acesso AWS/MinIO | Sim |
-| `AWS_SECRET_ACCESS_KEY` | Chave secreta AWS/MinIO | Sim |
-| `OPENAI_SYSTEM_API_KEY` | Chave OpenAI do sistema (fallback) | Recomendado |
-| `ANTHROPIC_SYSTEM_API_KEY` | Chave Anthropic do sistema | Recomendado |
+| `POSTGRES_HOST` / `POSTGRES_PORT` / `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | Conexão com o PostgreSQL (o compose monta a `SPRING_DATASOURCE_URL` a partir delas) | Sim |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Conexão com o Redis | Sim |
+| `KAFKA_HOST` / `KAFKA_PORT` / `KAFKA_UI_PORT` | Listener externo do Kafka e porta do Kafka UI | Sim |
+| `MINIO_ROOT_USER` / `MINIO_ROOT_PASSWORD` / `MINIO_API_PORT` / `MINIO_CONSOLE_PORT` | Credenciais e portas do MinIO | Sim |
+| `MINIO_BUCKET_IMAGES` / `MINIO_BUCKET_MODELS` | Buckets de imagens e modelos | Sim (Sprint 3+) |
+| `JWT_SECRET` | Chave HMAC de assinatura dos JWT (gerar com `openssl rand -base64 64`). Precisa ser **a mesma** no Auth Service e no User Service | Sim |
+| `JWT_ACCESS_TOKEN_EXPIRATION` / `JWT_REFRESH_TOKEN_EXPIRATION` | Validade dos tokens em segundos (padrão 3600 / 604800) | Não |
+| `AES_SECRET_KEY` | Chave AES-256 do Credential Service (gerar com `openssl rand -base64 32`) | Sim (Credential Service) |
+| `AUTH_SERVICE_PORT` … `ANALYSIS_SERVICE_PORT` | Portas dos microsserviços (8081–8086) | Não |
+| `NEXT_PUBLIC_API_BASE_URL` / `NEXT_PUBLIC_APP_URL` / `NEXT_PUBLIC_DEFAULT_LOCALE` | Configuração do frontend | Sim (frontend) |
+
+Variáveis planejadas, ainda não usadas pelo código:
+
+| Variável | Descrição |
+|---|---|
+| `OPENAI_SYSTEM_API_KEY` / `ANTHROPIC_SYSTEM_API_KEY` | Chaves de sistema para o fallback de credencial (RF-35). As chaves dos usuários **não** ficam no `.env`. Elas são gerenciadas pelo Credential Service |
+| `PROMETHEUS_PORT` / `GRAFANA_PORT` / `LOKI_PORT` / `JAEGER_UI_PORT` | Stack de observabilidade (comentadas no `.env.example`) |
 
 ---
 
@@ -83,9 +107,9 @@ docker-compose exec auth-service ./gradlew flywayMigrate
 
 ### 4.1. Workflow: Build e Teste (on: push → develop, feature/*)
 
-1. Checkout do repositório e configuração do Java 17 (Temurin)
-2. Build e execução de testes unitários: `./gradlew test`
-3. Execução de testes de integração com Testcontainers: `./gradlew integrationTest`
+1. Checkout do repositório e configuração do Java 21 (Temurin), por exemplo com `actions/setup-java` e `java-version: '21'`, `distribution: 'temurin'`
+2. Build, testes unitários e de integração (Testcontainers) com verificação de cobertura: `./gradlew build -PincludeIntegration` em `backend/`. Sem a flag, os testes com `@Tag("integration")` são excluídos e o gate de cobertura do Jacoco (≥ 80%) não é aplicado. Não existe task `integrationTest` separada.
+3. Frontend: `pnpm install --frozen-lockfile && pnpm lint && pnpm type-check && pnpm test && pnpm build` em `frontend/`
 4. Análise SAST com SonarQube: verifica quality gates (coverage ≥ 80%, zero critical bugs)
 5. Build da imagem Docker de cada microsserviço: `docker build -t registry/service:${GITHUB_SHA}`
 6. Push das imagens para o registry: `ghcr.io/org/phenoai-{service}:{sha}`
@@ -132,6 +156,8 @@ docker-compose exec auth-service ./gradlew flywayMigrate
 | Analysis Results | 2 | 5 | 250m / 500m | 256Mi / 512Mi | CPU > 70% |
 | Reporting Service | 1 | 4 | 500m / 1000m | 512Mi / 1Gi | CPU > 70% |
 | Frontend (Next.js) | 2 | 6 | 250m / 500m | 256Mi / 512Mi | CPU > 70% |
+
+> User Service e Model Catalog Service ainda não têm dimensionamento definido nesta tabela.
 
 ---
 

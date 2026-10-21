@@ -2,7 +2,7 @@
 ## Estratégia de Testes e Qualidade
 > *Test Strategy, QA Plan e Quality Gates*
 
-**Versão:** 1.0 | **Data:** Junho 2026 | **Equipe:** Neon Space Engineering Team
+**Versão:** 1.1 | **Data:** Outubro 2026 | **Equipe:** Emely Atila Development
 
 ---
 
@@ -11,6 +11,17 @@
 
 O PhenoAI Studio adota a abordagem **Shift-Left Testing**: testes são parte integral do desenvolvimento, não uma etapa final. A **pirâmide de testes** guia a estratégia: base larga de testes unitários, camada intermediária de testes de integração e topo com testes E2E focados em fluxos críticos.
 
+### 1.1. Estado atual da execução de testes (v1.1)
+
+| Item | Como funciona hoje |
+|---|---|
+| Testes existentes | Auth Service: `JwtServiceTest`, `AuthServiceTest` (unitários) e `AuthControllerIntegrationTest` (integração). User Service ainda sem testes |
+| Execução local | `./gradlew test` em `backend/` roda só os unitários. Testes com `@Tag("integration")` são excluídos por padrão |
+| Integração (Testcontainers) | `./gradlew test -PincludeIntegration`. Sobe `postgres:15-alpine` e `redis:7-alpine`. No Windows com Docker Desktop, o build usa `DOCKER_HOST=tcp://localhost:2375` por padrão |
+| Cobertura (Jacoco 0.8.11) | Relatórios XML/HTML gerados após `test`. O gate de **80%** (`jacocoTestCoverageVerification`) só entra no `check` com `-PincludeIntegration`, porque os unitários sozinhos não atingem o mínimo |
+| Frontend | Jest 29 + React Testing Library configurados (`pnpm test`, roda com `--passWithNoTests`). Ainda sem testes escritos |
+| E2E / SAST / DAST / carga | Planejados (seções 5–8), ainda não configurados |
+
 ---
 
 ## 2. Pirâmide de Testes — Distribuição
@@ -18,7 +29,7 @@ O PhenoAI Studio adota a abordagem **Shift-Left Testing**: testes são parte int
 | Nível | Quantidade | % do Total | Ferramentas | Executado em |
 |---|---|---|---|---|
 | Unitário | Alta (~70%) | 70% | JUnit 5, Mockito, React Testing Library, Jest | Cada commit/PR |
-| Integração | Média (~20%) | 20% | Testcontainers, Spring Boot Test, MockMvc | Cada commit/PR |
+| Integração | Média (~20%) | 20% | Testcontainers, Spring Boot Test, MockMvc | Cada commit/PR no CI (`-PincludeIntegration`). Localmente, sob demanda |
 | Componente/Serviço | Baixa (~7%) | 7% | REST Assured, Pact (Consumer-Driven Contracts) | Push → develop |
 | E2E | Mínima (~3%) | 3% | Playwright, Cypress | Pre-deploy staging/prod |
 | Performance/Carga | Pontual | Suporte | JMeter, Gatling | Sprint de release |
@@ -76,21 +87,23 @@ void shouldEncryptApiKeyBeforeSaving() {
 ## 4. Testes de Integração — Testcontainers
 
 ```java
+@Tag("integration")
 @Testcontainers
 @SpringBootTest
 class AnalysisIntegrationTest {
 
+    // Mesmas imagens do docker-compose.yml, para paridade com o ambiente local
     @Container
     static PostgreSQLContainer<?> postgres =
-        new PostgreSQLContainer<>("postgres:15");
+        new PostgreSQLContainer<>("postgres:15-alpine");
 
     @Container
     static GenericContainer<?> redis =
-        new GenericContainer<>("redis:7").withExposedPorts(6379);
+        new GenericContainer<>("redis:7-alpine").withExposedPorts(6379);
 
     @Container
     static KafkaContainer kafka =
-        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.4.0"));
+        new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.1"));
 
     // Testa o fluxo completo: Upload → ImageProcessing → AIOrchestration → Results
 }
